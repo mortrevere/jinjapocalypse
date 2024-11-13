@@ -6,15 +6,15 @@ Jinjapocalypse is a lightweight website builder utilizing Jinja and hourris for 
 
 To build the Docker image, open a terminal and navigate to the directory containing your `Dockerfile`. Run the following command:
 
-    docker build -t jinjapocalypse-image .
+    docker build -t jinjapocalypse .
 
-This command will build the Docker image using the `Dockerfile` provided, naming it `jinjapocalypse-image`.
+This command will build the Docker image using the `Dockerfile` provided, naming it `jinjapocalypse`.
 
 ## Running the Docker Container
 
 To process your files, run the built container. Use the `-v` flag to mount your source directory to the container. Replace `/path/to/your/project` with the absolute path to your project directory:
 
-    docker run --rm -v /path/to/your/project:/jinjapocalypse jinjapocalypse-image
+    docker run --rm -u $(id -u):$(id -g) -v /path/to/your/project:/jinjapocalypse jinjapocalypse
 
 ### Options:
 

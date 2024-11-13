@@ -20,7 +20,6 @@ class Jinjapocalypse:
                 logger.info(f"Created directory: {folder}")
 
     def render_template(self, template_path, lib_content):
-        full_template_path = os.path.join(self.src_folder, template_path)
         env = Environment(
             loader=FileSystemLoader(self.src_folder),
             trim_blocks=True,
@@ -29,10 +28,14 @@ class Jinjapocalypse:
             variable_start_string="\\o/",
             variable_end_string="\\o/",
         )
-        template = env.get_template(template_path)
 
         # Prepend lib_content to the template content before rendering
         full_content = lib_content + self.context["src"][template_path]
+        # Allow using plain jinja instead of hourris, nice for writing lib.ninja
+        full_content = full_content.replace("{{", "\\o/")
+        full_content = full_content.replace("}}", "\\o/")
+        full_content = full_content.replace("{%", "/o/")
+        full_content = full_content.replace("%}", "\\o\\")
         return env.from_string(full_content).render(self.context)
 
     def copy_files(self, source_folder, destination_folder):

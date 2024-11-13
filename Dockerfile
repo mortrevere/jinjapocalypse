@@ -11,14 +11,14 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the Python script into the container
-COPY jinjapocalypse.py .
+COPY jinjapocalypse.py /jinjapocalypse.py
 
 # Create necessary directories and set permissions
-RUN mkdir -p /jinjapocalypse/src /jinjapocalypse/build /jinjapocalypse/media && \
+RUN mkdir -p /jinjapocalypse && \
     chown -R nobody:nogroup /jinjapocalypse
 
 # Switch to a non-root user for security purposes
-USER nobody
+USER root
 
 # Set the default command to execute the Python script
-ENTRYPOINT ["python", "jinjapocalypse.py"]
+ENTRYPOINT ["python", "/jinjapocalypse.py"]
