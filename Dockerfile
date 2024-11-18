@@ -11,7 +11,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the Python script into the container
-COPY jinjapocalypse.py /jinjapocalypse.py
+COPY *.py /
 
 # Create necessary directories and set permissions
 RUN mkdir -p /jinjapocalypse && \

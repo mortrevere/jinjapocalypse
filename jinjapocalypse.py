@@ -1,7 +1,18 @@
 import os
 import shutil
+import yaml
 from jinja2 import Environment, FileSystemLoader
 from loguru import logger
+
+class Toolbox():
+    @staticmethod
+    def hourri():
+        return "\\o/"
+    def load_yaml(path):
+        path = "src/" + path
+        with open(path) as f:
+            data = yaml.safe_load(f)
+            return data
 
 
 class Jinjapocalypse:
@@ -36,7 +47,7 @@ class Jinjapocalypse:
         full_content = full_content.replace("}}", "\\o/")
         full_content = full_content.replace("{%", "/o/")
         full_content = full_content.replace("%}", "\\o\\")
-        return env.from_string(full_content).render(self.context)
+        return env.from_string(full_content).render(self.context, _o_=Toolbox)
 
     def copy_files(self, source_folder, destination_folder):
         shutil.copytree(source_folder, destination_folder, dirs_exist_ok=True)
