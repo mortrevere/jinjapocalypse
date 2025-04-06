@@ -34,6 +34,27 @@ class Toolbox:
             data = yaml.safe_load(f)
             return data
 
+    def get_dot_path(data, dot_path):
+        value = data
+        for chunk in dot_path.split("."):
+            value = value.get(chunk, {})
+        return value
+
+    def uniq(data, key):
+        _set = set()
+        for item in data:
+            try:
+                for _item in Toolbox.get_dot_path(item, key):
+                    _set.add(_item)
+            except Exception:
+                ...
+        return list(_set)
+
+    def lookup(data, key, default=None):
+        if default is None:
+            default = key
+        return data.get(key, default)
+
     def slugify(text, delimiter="-"):
         text = unicodedata.normalize("NFKC", text)
         return re.sub(r"[-\s]+", delimiter, re.sub(r"[^\w\s-]", "", text).strip().lower())
@@ -115,6 +136,13 @@ class Jinjapocalypse:
                 self.context["src"][src_file] = content
 
         # Render (or copy) each file to the build directory
+        logger.info("Rendering files into memory for includes ...")
+        for src_file in src_files:
+            if not self.context["src"][src_file].startswith("!norender"):
+                rendered_content = self.render_template(src_file, lib_content)
+                self.context["src"][src_file] = rendered_content
+
+        logger.info("Rendering files onto disk...")
         for src_file in src_files:
             if self.context["src"][src_file].startswith("!norender"):
                 rendered_content = self.context["src"][src_file]
