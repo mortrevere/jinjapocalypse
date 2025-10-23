@@ -153,7 +153,7 @@ class Jinjapocalypse:
             sections, pure_html = self.parse_special_tags(rendered_content)
 
             if len(sections):
-                logger.info(f"Processing {len(sections)} found in {build_file.name}")
+                logger.info(f"Processing {len(sections)} found in {src_file}")
                 self.process_sections(sections)
 
             if not pure_html.strip():
