@@ -8,6 +8,7 @@ from loguru import logger
 import unicodedata
 import re
 
+import plugin
 
 class Tokens:
     def __init__(self):
@@ -67,6 +68,16 @@ class Toolbox:
     def end_page():
         p = {"type": "end_page"}
         return _TOKENS.bake(p)
+    
+    def __init__(self):
+        self.plugins = {}
+
+        for cls in plugin.Plugin.__subclasses__():
+            ns = getattr(cls, "namespace", None)
+            if ns:
+                inst = cls()
+                self.plugins[ns] = inst
+                setattr(self, ns, inst)
 
 
 class Jinjapocalypse:
@@ -101,7 +112,7 @@ class Jinjapocalypse:
         full_content = full_content.replace("}}", "\\o/")
         full_content = full_content.replace("{%", "/o/")
         full_content = full_content.replace("%}", "\\o\\")
-        return env.from_string(full_content).render(self.context, _o_=Toolbox)
+        return env.from_string(full_content).render(self.context, _o_=Toolbox())
 
     def copy_files(self, source_folder, destination_folder):
         shutil.copytree(source_folder, destination_folder, dirs_exist_ok=True)
