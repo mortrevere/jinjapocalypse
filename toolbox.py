@@ -4,6 +4,7 @@ import unicodedata
 import re
 from loguru import logger
 import json
+import plugin
 
 class Tokens:
     def __init__(self):
@@ -63,3 +64,13 @@ class Toolbox:
     def end_page():
         p = {"type": "end_page"}
         return _TOKENS.bake(p)
+    
+    def __init__(self):
+        self.plugins = {}
+
+        for cls in plugin.Plugin.__subclasses__():
+            ns = getattr(cls, "namespace", None)
+            if ns:
+                inst = cls()
+                self.plugins[ns] = inst
+                setattr(self, ns, inst)
