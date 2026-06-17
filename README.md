@@ -20,6 +20,7 @@ in a cwd like:
 - `src/lib.jinja` is included for all rendering contexts and not rendered to `build/`
 - Post-rendering empty files are not included in `build` output
 - It's jinja but with *hourris* and a fancy toolbox: `\o/` `/o/` `\o\` `_o_`
+- `NOTION_API_KEY` is optional; it is only needed if you call the Notion helper methods from templates
 
 
 ## Examples

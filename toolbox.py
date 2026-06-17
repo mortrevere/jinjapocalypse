@@ -25,18 +25,21 @@ class Toolbox:
     def hourri():
         return "\\o/"
 
+    @staticmethod
     def load_yaml(path):
         path = "src/" + path
         with open(path) as f:
             data = yaml.safe_load(f)
             return data
 
+    @staticmethod
     def get_dot_path(data, dot_path):
         value = data
         for chunk in dot_path.split("."):
             value = value.get(chunk, {})
         return value
 
+    @staticmethod
     def uniq(data, key):
         _set = set()
         for item in data:
@@ -47,20 +50,24 @@ class Toolbox:
                 ...
         return list(_set)
 
+    @staticmethod
     def lookup(data, key, default=None):
         if default is None:
             default = key
         return data.get(key, default)
 
+    @staticmethod
     def slugify(text, delimiter="-"):
         text = unicodedata.normalize("NFKC", text)
         return re.sub(r"[-\s]+", delimiter, re.sub(r"[^\w\s-]", "", text).strip().lower())
 
+    @staticmethod
     def start_page(page_name):
         page_name = Toolbox.slugify(page_name)
         p = {"type": "start_page", "page_name": page_name}
         return _TOKENS.bake(p)
 
+    @staticmethod
     def end_page():
         p = {"type": "end_page"}
         return _TOKENS.bake(p)

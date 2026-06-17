@@ -18,15 +18,17 @@ class Plugin():
 
 class Notion(Plugin):
     namespace = "notion"
-    api_key = os.environ.get("NOTION_API_KEY")
 
     def __init__(self):
         super().__init__()
+        self.api_key = os.environ.get("NOTION_API_KEY")
+        
+    def _require_api_key(self):
         if not self.api_key:
-            logger.critical(f"Missing NOTION_API_KEY in env")
-            sys.exit(1)
+            raise RuntimeError("NOTION_API_KEY is required to use Notion helpers")
 
     def get_block(self, block_id):  # works with page id too
+        self._require_api_key()
         url = f"https://api.notion.com/v1/blocks/{block_id}/children"
 
         headers = {
