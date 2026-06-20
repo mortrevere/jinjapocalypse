@@ -16,6 +16,7 @@ class Jinjapocalypse:
         self.build_folder = build_folder
         self.media_folder = media_folder
         self.context = {"src": {}}
+        self.no_render_files = set()
         self.ensure_directories_exist()
         self.optimizer = MediaOptimizer(max_size_kb=300, optimize_png=True, optimize_jpg=True)
 
@@ -47,6 +48,15 @@ class Jinjapocalypse:
 
     def copy_files(self, source_folder, destination_folder):
         shutil.copytree(source_folder, destination_folder, dirs_exist_ok=True)
+
+    def strip_norender_marker(self, content):
+        if content.startswith("!norender"):
+            content = content[len("!norender"):]
+            if content.startswith("\r\n"):
+                content = content[2:]
+            elif content.startswith("\n") or content.startswith("\r"):
+                content = content[1:]
+        return content
 
     def process_files(self):
         os.makedirs(self.build_folder, exist_ok=True)
@@ -80,14 +90,21 @@ class Jinjapocalypse:
         # Render (or copy) each file to the build directory
         logger.info("Rendering files into memory for includes ...")
         for src_file in src_files:
-            if not self.context["src"][src_file].startswith("!norender"):
+            content = self.context["src"][src_file]
+            if content.startswith("!norender"):
+                logger.info(f"Rendering {src_file} as-is because of !norender")
+                self.no_render_files.add(src_file)
+                self.context["src"][src_file] = self.strip_norender_marker(content)
+            else:
                 rendered_content = self.render_template(src_file, lib_content)
                 self.context["src"][src_file] = rendered_content
 
         logger.info("Rendering files onto disk...")
         for src_file in src_files:
-            if self.context["src"][src_file].startswith("!norender"):
-                rendered_content = self.context["src"][src_file]
+            content = self.context["src"][src_file]
+            if src_file in self.no_render_files:
+                logger.info(f"Rendering {src_file} as-is because of !norender")
+                rendered_content = content
             else:
                 logger.info(f"Rendering {src_file}")
                 rendered_content = self.render_template(src_file, lib_content)
