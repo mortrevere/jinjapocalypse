@@ -1,3 +1,4 @@
+import hashlib
 import random
 import yaml
 import unicodedata
@@ -60,6 +61,11 @@ class Toolbox:
     def slugify(text, delimiter="-"):
         text = unicodedata.normalize("NFKC", text)
         return re.sub(r"[-\s]+", delimiter, re.sub(r"[^\w\s-]", "", text).strip().lower())
+
+    @staticmethod
+    def hash(text, length=None):
+        digest = hashlib.sha256(text.encode("utf-8")).hexdigest()
+        return digest if length is None else digest[:length]
 
     @staticmethod
     def start_page(page_name):
