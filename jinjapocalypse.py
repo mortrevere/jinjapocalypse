@@ -1,3 +1,4 @@
+import argparse
 import json
 import os
 import random
@@ -7,6 +8,7 @@ from jinja2 import Environment, FileSystemLoader
 from loguru import logger
 import re
 
+from git_repo import GitRepoSource
 from toolbox import Toolbox
 from media_optimizer import MediaOptimizer
 
@@ -175,5 +177,16 @@ class Jinjapocalypse:
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--source-from-git-repo",
+        dest="source_from_git_repo",
+        help="Sparse checkout src/ and media/ from a git repo before building",
+    )
+    args = parser.parse_args()
+
+    if args.source_from_git_repo:
+        GitRepoSource(args.source_from_git_repo).copy_source_tree(".")
+
     jinjapocalypse_instance = Jinjapocalypse()
     jinjapocalypse_instance.process_files()

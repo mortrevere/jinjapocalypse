@@ -6,6 +6,12 @@ I hope you like jinja as much as I do
 
 `docker run --rm -u $(id -u):$(id -g) -v $(pwd):/jinjapocalypse jinjapocalypse`
 
+To build from a remote repo instead of the local working tree:
+
+```sh
+docker run --rm -u $(id -u):$(id -g) -v $(pwd):/jinjapocalypse jinjapocalypse --source-from-git-repo=https://example.com/repo.git
+```
+
 in a cwd like: 
 ```
 .
