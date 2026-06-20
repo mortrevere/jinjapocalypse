@@ -37,11 +37,14 @@ class GitRepoSource:
             destination_root = Path(destination_root)
             for folder_name in ("src", "media"):
                 source_path = checkout_dir / folder_name
-                if not source_path.exists():
-                    raise RuntimeError(f"{folder_name}/ was not found in {self.repo_url}")
-
                 destination_path = destination_root / folder_name
-                if destination_path.exists():
-                    shutil.rmtree(destination_path)
-                shutil.copytree(source_path, destination_path)
-                logger.info("Copied {} to {}", source_path, destination_path)
+
+                try:
+                    if destination_path.exists():
+                        shutil.rmtree(destination_path)
+                    shutil.copytree(source_path, destination_path)
+                    logger.info("Copied {} to {}", source_path, destination_path)
+                except FileNotFoundError:
+                    if folder_name == "src":
+                        raise RuntimeError(f"{folder_name}/ was not found in {self.repo_url}")
+                    logger.info("{} was not found in {}; skipping", folder_name, self.repo_url)
