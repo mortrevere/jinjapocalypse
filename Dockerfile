@@ -1,24 +1,25 @@
-ARG BASE_IMAGE=python:3.12
+ARG BASE_IMAGE=python:3.12-slim-bookworm
 FROM ${BASE_IMAGE}
 
-# Set working directory
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1
+
 WORKDIR /jinjapocalypse
 
-# Copy requirements.txt into the container
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends git \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY requirements.txt .
 
-# Install dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install -r requirements.txt
 
-# Copy the Python script into the container
 COPY *.py /
 
-# Create necessary directories and set permissions
-RUN mkdir -p /jinjapocalypse && \
-    chown -R nobody:nogroup /jinjapocalypse
+RUN useradd --system --uid 10001 --create-home --home-dir /home/jinjapocalypse jinjapocalypse \
+    && chown -R jinjapocalypse:jinjapocalypse /jinjapocalypse
 
-# Switch to a non-root user for security purposes
-USER root
+USER jinjapocalypse
 
-# Set the default command to execute the Python script
 ENTRYPOINT ["python", "/jinjapocalypse.py"]
