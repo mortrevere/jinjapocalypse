@@ -5,6 +5,8 @@ set -eu
 IMAGE_NAME="${IMAGE_NAME:-jinjapocalypse}"
 BASE_IMAGE="${BASE_IMAGE:-python:3.12-slim-bookworm}"
 
+uv run pytest
+
 docker build \
   --build-arg BASE_IMAGE="$BASE_IMAGE" \
   -t "$IMAGE_NAME" \
