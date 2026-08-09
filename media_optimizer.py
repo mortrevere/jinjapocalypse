@@ -1,6 +1,5 @@
 import os
 import io
-import time
 from math import ceil
 from typing import Optional
 from PIL import Image, ImageOps, ImageChops, UnidentifiedImageError
@@ -23,7 +22,6 @@ class MediaOptimizer:
         emit_resized_png=True,
         jpg_suffix="",
         png_suffix="",
-        skip_existing_max_age_seconds=3600,
     ):
         """
         :param max_size_kb: Size cap per output (KB) for optimization targets.
@@ -39,7 +37,6 @@ class MediaOptimizer:
         :param emit_resized_png: For PNG inputs, also write a resized PNG sibling (no _encode_png).
         :param jpg_suffix: Suffix for converted JPG (before extension).
         :param png_suffix: Suffix for resized PNG (before extension).
-        :param skip_existing_max_age_seconds: Reuse destination files with matching names newer than this.
         """
         self.max_size = max_size_kb * 1024
         self.optimize_png = optimize_png
@@ -54,8 +51,6 @@ class MediaOptimizer:
         self.emit_resized_png = bool(emit_resized_png)
         self.jpg_suffix = str(jpg_suffix)
         self.png_suffix = str(png_suffix)
-        self.skip_existing_max_age_seconds = int(skip_existing_max_age_seconds)
-        self._recent_destination_names = set()
 
         # JPEG ladder: 100 → max_compression_jpg (inclusive) by -2
         self.jpg_qualities = [100] + list(range(98, self.max_compression_jpg - 1, -2))
@@ -64,7 +59,6 @@ class MediaOptimizer:
 
     def optimize(self, media_folder: str):
         logger.info(f"Optimizing media files in: {media_folder}")
-        self._recent_destination_names = self._find_recent_destination_names(media_folder)
         count = 0
         for root, _, files in os.walk(media_folder):
             for name in files:
@@ -75,9 +69,6 @@ class MediaOptimizer:
                     full = self._normalize_jpg_extension(full)
                     if not self.optimize_jpg:
                         logger.debug(f"Skip JPG: {full}")
-                        continue
-                    if self._should_skip_output(full):
-                        logger.info(f"Skip recent destination file: {name}")
                         continue
                     if self._should_skip_empty_image(full):
                         continue
@@ -106,10 +97,7 @@ class MediaOptimizer:
         if filepath == normalized:
             return filepath
 
-        was_recent = os.path.basename(filepath) in self._recent_destination_names
         os.replace(filepath, normalized)
-        if was_recent:
-            self._remember_destination_name(normalized)
         logger.info(f"Normalized JPG extension: {filepath} → {normalized}")
         return normalized
 
@@ -153,25 +141,17 @@ class MediaOptimizer:
                 # 1) Converted JPEG sibling (optimized to cap)
                 if self.convert_png_to_jpg:
                     jpg_path = f"{base}{self.jpg_suffix}.jpg"
-                    if self._should_skip_output(jpg_path):
-                        logger.info(f"Skip recent destination file: {os.path.basename(jpg_path)}")
+                    jpg_bytes = self._best_jpeg_bytes(im, cap=self.max_size)
+                    if jpg_bytes:
+                        self._write(jpg_path, jpg_bytes)
+                        logger.info(f"Wrote {os.path.basename(jpg_path)} ({len(jpg_bytes)//1024} KB) from PNG source")
                     else:
-                        jpg_bytes = self._best_jpeg_bytes(im, cap=self.max_size)
-                        if jpg_bytes:
-                            self._write(jpg_path, jpg_bytes)
-                            self._remember_destination_name(jpg_path)
-                            logger.info(f"Wrote {os.path.basename(jpg_path)} ({len(jpg_bytes)//1024} KB) from PNG source")
-                        else:
-                            logger.warning(f"Could not produce capped JPEG for {os.path.basename(filepath)}")
+                        logger.warning(f"Could not produce capped JPEG for {os.path.basename(filepath)}")
 
                 # 2) Resized PNG sibling (bypass _encode_png)
                 if self.emit_resized_png:
                     png_path = f"{base}{self.png_suffix}.png"
-                    if self._should_skip_output(png_path):
-                        logger.info(f"Skip recent destination file: {os.path.basename(png_path)}")
-                    else:
-                        self._emit_resized_png_no_encode(im, png_path)
-                        self._remember_destination_name(png_path)
+                    self._emit_resized_png_no_encode(im, png_path)
 
         except UnidentifiedImageError as e:
             logger.warning(f"Skipping unreadable PNG {filepath}: {e}")
@@ -249,28 +229,6 @@ class MediaOptimizer:
             return None
 
     # -------------------- shared helpers --------------------
-
-    def _find_recent_destination_names(self, media_folder: str):
-        recent_names = set()
-        for root, _, files in os.walk(media_folder):
-            for name in files:
-                path = os.path.join(root, name)
-                if self._is_recent_file(path):
-                    recent_names.add(name)
-        return recent_names
-
-    def _should_skip_output(self, path: str) -> bool:
-        return os.path.basename(path) in self._recent_destination_names
-
-    def _remember_destination_name(self, path: str):
-        self._recent_destination_names.add(os.path.basename(path))
-
-    def _is_recent_file(self, path: str) -> bool:
-        try:
-            age_seconds = time.time() - os.stat(path).st_mtime
-        except OSError:
-            return False
-        return age_seconds < self.skip_existing_max_age_seconds
 
     def _best_jpeg_bytes(self, img: Image.Image, cap: int) -> Optional[bytes]:
         """
