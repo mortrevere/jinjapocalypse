@@ -149,6 +149,7 @@ class MediaOptimizer:
             with Image.open(filepath) as im:
                 im = ImageOps.exif_transpose(im)
                 base, _ = os.path.splitext(filepath)
+                original_size = os.path.getsize(filepath)
 
                 # 1) Converted JPEG sibling (optimized to cap)
                 if self.convert_png_to_jpg:
@@ -156,31 +157,34 @@ class MediaOptimizer:
                     jpg_bytes = self._best_jpeg_bytes(im, cap=self.max_size)
                     if jpg_bytes:
                         self._write(jpg_path, jpg_bytes)
-                        logger.info(f"Wrote {os.path.basename(jpg_path)} ({len(jpg_bytes)//1024} KB) from PNG source")
+                        if len(jpg_bytes) < original_size:
+                            self._log_gain(jpg_path, original_size, len(jpg_bytes))
+                        else:
+                            logger.info(f"Wrote {os.path.basename(jpg_path)} ({len(jpg_bytes)//1024} KB) from PNG source")
                     else:
                         logger.warning(f"Could not produce capped JPEG for {os.path.basename(filepath)}")
 
                 # 2) Resized PNG sibling (bypass _encode_png)
                 if self.emit_resized_png:
                     png_path = f"{base}{self.png_suffix}.png"
-                    self._emit_resized_png_no_encode(im, png_path)
+                    self._emit_resized_png_no_encode(im, png_path, original_size=original_size)
 
         except UnidentifiedImageError as e:
             logger.warning(f"Skipping unreadable PNG {filepath}: {e}")
         except Exception as e:
             logger.exception(f"Failed to process PNG {filepath}: {e}")
 
-    def _emit_resized_png_no_encode(self, img: Image.Image, out_path: str):
+    def _emit_resized_png_no_encode(self, img: Image.Image, out_path: str, original_size: Optional[int] = None):
         """
         Create a gently downscaled PNG sibling without calling _encode_png.
         Keep key ancillary chunks when present. Try to approach the cap if possible,
         but prioritize being smaller than original; stop at min_side_px.
         """
         # Measure original PNG size if exists; we won't overwrite original.
-        original_size = None
-        orig_png = os.path.splitext(out_path)[0].replace(self.png_suffix, "") + ".png"
-        if os.path.exists(orig_png):
-            original_size = os.path.getsize(orig_png)
+        if original_size is None:
+            orig_png = os.path.splitext(out_path)[0].replace(self.png_suffix, "") + ".png"
+            if os.path.exists(orig_png):
+                original_size = os.path.getsize(orig_png)
 
         # Try iterative downscale (2% default) and save with default PNG writer
         current = img.copy()
@@ -210,13 +214,19 @@ class MediaOptimizer:
 
         if best_bytes:
             self._write(out_path, best_bytes)
-            logger.info(f"Wrote {os.path.basename(out_path)} ({best_len//1024} KB)")
+            if original_size and best_len < original_size:
+                self._log_gain(out_path, original_size, best_len)
+            else:
+                logger.info(f"Wrote {os.path.basename(out_path)} ({best_len//1024} KB)")
         else:
             # fallback: write one pass without resize
             bytes_once = self._save_png_default_bytes(img, img.info)
             if bytes_once:
                 self._write(out_path, bytes_once)
-                logger.info(f"Wrote {os.path.basename(out_path)} ({len(bytes_once)//1024} KB) (no resize improvement)")
+                if original_size and len(bytes_once) < original_size:
+                    self._log_gain(out_path, original_size, len(bytes_once))
+                else:
+                    logger.info(f"Wrote {os.path.basename(out_path)} ({len(bytes_once)//1024} KB) (no resize improvement)")
 
     def _save_png_default_bytes(self, img: Image.Image, info: dict) -> Optional[bytes]:
         """

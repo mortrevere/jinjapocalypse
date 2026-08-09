@@ -85,3 +85,30 @@ def test_process_png_emits_siblings_without_overwriting_original(tmp_path):
     assert png.read_bytes() == original
     assert (tmp_path / "icon-optimized.jpg").exists()
     assert (tmp_path / "icon-resized.png").exists()
+
+
+def test_process_png_logs_gain_for_converted_jpg(tmp_path, monkeypatch):
+    png = tmp_path / "source.png"
+    Image.new("RGB", (32, 32), "red").save(png)
+    original_size = png.stat().st_size
+    calls = []
+
+    optimizer = MediaOptimizer(convert_png_to_jpg=True, emit_resized_png=False)
+    monkeypatch.setattr(optimizer, "_best_jpeg_bytes", lambda img, cap: b"x" * (original_size - 1))
+    monkeypatch.setattr(optimizer, "_log_gain", lambda path, before, after: calls.append((Path(path).name, before, after)))
+
+    optimizer._process_png(str(png))
+
+    assert calls == [("source.jpg", original_size, original_size - 1)]
+
+
+def test_emit_resized_png_logs_gain_against_source_png_size(tmp_path, monkeypatch):
+    out_path = tmp_path / "source-resized.png"
+    calls = []
+    optimizer = MediaOptimizer(png_suffix="-resized")
+    monkeypatch.setattr(optimizer, "_save_png_default_bytes", lambda img, info: b"x" * 10)
+    monkeypatch.setattr(optimizer, "_log_gain", lambda path, before, after: calls.append((Path(path).name, before, after)))
+
+    optimizer._emit_resized_png_no_encode(Image.new("RGB", (32, 32), "red"), str(out_path), original_size=20)
+
+    assert calls == [("source-resized.png", 20, 10)]
