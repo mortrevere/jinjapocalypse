@@ -31,6 +31,45 @@ def test_skips_empty_images(tmp_path):
     assert MediaOptimizer()._should_skip_empty_image(str(empty)) is True
 
 
+def test_skips_images_under_size_limit(tmp_path):
+    image_path = tmp_path / "small.jpg"
+    image_path.write_bytes(b"x" * 1023)
+
+    optimizer = MediaOptimizer(max_size_kb=1)
+
+    assert optimizer._should_skip_under_size_limit(str(image_path)) is True
+
+
+def test_optimize_does_not_process_images_under_size_limit(tmp_path, monkeypatch):
+    jpg = tmp_path / "small.jpg"
+    png = tmp_path / "small.png"
+    jpg.write_bytes(b"x" * 1023)
+    png.write_bytes(b"x" * 1023)
+    processed = []
+
+    monkeypatch.setattr(MediaOptimizer, "_optimize_jpeg_inplace", lambda self, path: processed.append(path))
+    monkeypatch.setattr(MediaOptimizer, "_process_png", lambda self, path: processed.append(path))
+
+    MediaOptimizer(max_size_kb=1).optimize(str(tmp_path))
+
+    assert processed == []
+
+
+def test_optimize_processes_images_at_size_limit(tmp_path, monkeypatch):
+    jpg = tmp_path / "limit.jpg"
+    png = tmp_path / "limit.png"
+    jpg.write_bytes(b"x" * 1024)
+    png.write_bytes(b"x" * 1024)
+    processed = []
+
+    monkeypatch.setattr(MediaOptimizer, "_optimize_jpeg_inplace", lambda self, path: processed.append(Path(path).name))
+    monkeypatch.setattr(MediaOptimizer, "_process_png", lambda self, path: processed.append(Path(path).name))
+
+    MediaOptimizer(max_size_kb=1).optimize(str(tmp_path))
+
+    assert sorted(processed) == ["limit.jpg", "limit.png"]
+
+
 def test_process_png_emits_siblings_without_overwriting_original(tmp_path):
     png = tmp_path / "icon.png"
     Image.new("RGBA", (32, 32), (255, 0, 0, 255)).save(png)

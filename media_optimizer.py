@@ -72,6 +72,8 @@ class MediaOptimizer:
                         continue
                     if self._should_skip_empty_image(full):
                         continue
+                    if self._should_skip_under_size_limit(full):
+                        continue
                     count += 1
                     self._optimize_jpeg_inplace(full)
 
@@ -80,6 +82,8 @@ class MediaOptimizer:
                         logger.debug(f"Skip PNG: {full}")
                         continue
                     if self._should_skip_empty_image(full):
+                        continue
+                    if self._should_skip_under_size_limit(full):
                         continue
                     count += 1
                     self._process_png(full)
@@ -106,6 +110,14 @@ class MediaOptimizer:
             return False
 
         logger.warning(f"Skipping empty image file: {filepath}")
+        return True
+
+    def _should_skip_under_size_limit(self, filepath: str) -> bool:
+        size = os.path.getsize(filepath)
+        if size >= self.max_size:
+            return False
+
+        logger.debug(f"Skipping already optimized image: {filepath} ({size//1024} KB)")
         return True
 
     def _optimize_jpeg_inplace(self, filepath: str):
