@@ -58,16 +58,12 @@ def write_executable(path, content):
     path.chmod(0o755)
 
 
-def test_build_script_runs_pytest_before_docker(tmp_path):
+def test_build_script_runs_docker_without_requiring_uv(tmp_path):
     fake_bin = tmp_path / "bin"
     fake_bin.mkdir()
     log = tmp_path / "calls.log"
     repo_root = Path(__file__).resolve().parents[1]
 
-    write_executable(
-        fake_bin / "uv",
-        f"#!/usr/bin/env sh\nprintf 'uv %s\\n' \"$*\" >> {log}\n",
-    )
     write_executable(
         fake_bin / "docker",
         f"#!/usr/bin/env sh\nprintf 'docker %s\\n' \"$*\" >> {log}\n",
@@ -81,24 +77,19 @@ def test_build_script_runs_pytest_before_docker(tmp_path):
     )
 
     assert log.read_text(encoding="utf-8").splitlines() == [
-        "uv run pytest",
         "docker build --build-arg BASE_IMAGE=python:3.12-slim-bookworm -t jinjapocalypse .",
     ]
 
 
-def test_build_script_skips_docker_when_pytest_fails(tmp_path):
+def test_build_script_propagates_docker_failure(tmp_path):
     fake_bin = tmp_path / "bin"
     fake_bin.mkdir()
     log = tmp_path / "calls.log"
     repo_root = Path(__file__).resolve().parents[1]
 
     write_executable(
-        fake_bin / "uv",
-        f"#!/usr/bin/env sh\nprintf 'uv %s\\n' \"$*\" >> {log}\nexit 7\n",
-    )
-    write_executable(
         fake_bin / "docker",
-        f"#!/usr/bin/env sh\nprintf 'docker %s\\n' \"$*\" >> {log}\n",
+        f"#!/usr/bin/env sh\nprintf 'docker %s\\n' \"$*\" >> {log}\nexit 7\n",
     )
 
     result = subprocess.run(
@@ -108,4 +99,15 @@ def test_build_script_skips_docker_when_pytest_fails(tmp_path):
     )
 
     assert result.returncode == 7
-    assert log.read_text(encoding="utf-8").splitlines() == ["uv run pytest"]
+    assert log.read_text(encoding="utf-8").splitlines() == [
+        "docker build --build-arg BASE_IMAGE=python:3.12-slim-bookworm -t jinjapocalypse .",
+    ]
+
+
+def test_dockerfile_runs_pytest_in_build_before_runtime_image():
+    dockerfile = (Path(__file__).resolve().parents[1] / "Dockerfile").read_text(encoding="utf-8")
+
+    assert "FROM base AS test" in dockerfile
+    assert "uv run --locked --no-sync pytest" in dockerfile
+    assert "COPY --from=test /app/.tests-passed /tmp/.tests-passed" in dockerfile
+    assert "uv sync --locked --no-dev --no-install-project" in dockerfile
