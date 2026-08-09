@@ -49,6 +49,25 @@ Hello world !
 </section>
 ```
 
+### Listing files and folders
+
+Use `_o_["glob"]` with project-relative paths rooted in `src/` or `media/`:
+
+```jinja
+/o/ for album in _o_["glob"]("media/pics/*", kind="folder") \o\
+<section>
+  <h2>\o/ album["name"] \o/</h2>
+  <p>\o/ _o_["read_file"](album["path"] + "/description.txt") \o/</p>
+
+  /o/ for photo in _o_["glob"](album["path"] + "/*.jpg", kind="file") \o\
+  <img src="\o/ photo["path"] \o/" alt="">
+  /o/ endfor \o\
+</section>
+/o/ endfor \o\
+```
+
+Use `_o_["read_file"]("src/about.txt")` or `_o_["read_file"]("media/pics/album/description.txt", default="")` to read stripped UTF-8 text into a template variable.
+
 ### Defining macros
 
 Use `src/lib.jinja`:

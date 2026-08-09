@@ -3,7 +3,7 @@ import io
 import time
 from math import ceil
 from typing import Optional
-from PIL import Image, ImageOps, ImageChops
+from PIL import Image, ImageOps, ImageChops, UnidentifiedImageError
 from loguru import logger
 
 
@@ -72,11 +72,14 @@ class MediaOptimizer:
                 ext = os.path.splitext(name)[1].lower()
 
                 if ext in (".jpg", ".jpeg"):
+                    full = self._normalize_jpg_extension(full)
                     if not self.optimize_jpg:
                         logger.debug(f"Skip JPG: {full}")
                         continue
                     if self._should_skip_output(full):
                         logger.info(f"Skip recent destination file: {name}")
+                        continue
+                    if self._should_skip_empty_image(full):
                         continue
                     count += 1
                     self._optimize_jpeg_inplace(full)
@@ -85,12 +88,37 @@ class MediaOptimizer:
                     if not self.optimize_png:
                         logger.debug(f"Skip PNG: {full}")
                         continue
+                    if self._should_skip_empty_image(full):
+                        continue
                     count += 1
                     self._process_png(full)
 
         logger.info(f"Media optimization complete. Touched {count} image(s).")
 
     # -------------------- JPG path (in-place) --------------------
+
+    def _normalize_jpg_extension(self, filepath: str) -> str:
+        base, ext = os.path.splitext(filepath)
+        if ext.lower() not in (".jpg", ".jpeg"):
+            return filepath
+
+        normalized = f"{base}.jpg"
+        if filepath == normalized:
+            return filepath
+
+        was_recent = os.path.basename(filepath) in self._recent_destination_names
+        os.replace(filepath, normalized)
+        if was_recent:
+            self._remember_destination_name(normalized)
+        logger.info(f"Normalized JPG extension: {filepath} → {normalized}")
+        return normalized
+
+    def _should_skip_empty_image(self, filepath: str) -> bool:
+        if os.path.getsize(filepath) > 0:
+            return False
+
+        logger.warning(f"Skipping empty image file: {filepath}")
+        return True
 
     def _optimize_jpeg_inplace(self, filepath: str):
         try:
@@ -103,6 +131,8 @@ class MediaOptimizer:
                     self._log_gain(filepath, len(original), len(best))
                 else:
                     logger.debug(f"No smaller JPG for {os.path.basename(filepath)} ({len(original)//1024} KB)")
+        except UnidentifiedImageError as e:
+            logger.warning(f"Skipping unreadable JPG {filepath}: {e}")
         except Exception as e:
             logger.exception(f"Failed to optimize JPG {filepath}: {e}")
 
@@ -143,6 +173,8 @@ class MediaOptimizer:
                         self._emit_resized_png_no_encode(im, png_path)
                         self._remember_destination_name(png_path)
 
+        except UnidentifiedImageError as e:
+            logger.warning(f"Skipping unreadable PNG {filepath}: {e}")
         except Exception as e:
             logger.exception(f"Failed to process PNG {filepath}: {e}")
 
