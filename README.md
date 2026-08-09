@@ -4,6 +4,10 @@ I hope you like jinja as much as I do
 
 ## Usage 
 
+`uv run python jinjapocalypse.py`
+
+Or with Docker:
+
 `docker run --rm -u $(id -u):$(id -g) -v $(pwd):/jinjapocalypse jinjapocalypse`
 
 To build from a remote repo instead of the local working tree:
