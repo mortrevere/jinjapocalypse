@@ -83,8 +83,6 @@ class MediaOptimizer:
                         continue
                     if self._should_skip_empty_image(full):
                         continue
-                    if self._should_skip_under_size_limit(full):
-                        continue
                     count += 1
                     self._process_png(full)
 
@@ -165,7 +163,7 @@ class MediaOptimizer:
                         logger.warning(f"Could not produce capped JPEG for {os.path.basename(filepath)}")
 
                 # 2) Resized PNG sibling (bypass _encode_png)
-                if self.emit_resized_png:
+                if self.emit_resized_png and (self.png_suffix or original_size >= self.max_size):
                     png_path = f"{base}{self.png_suffix}.png"
                     self._emit_resized_png_no_encode(im, png_path, original_size=original_size)
 

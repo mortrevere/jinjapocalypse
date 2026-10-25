@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import pytest
 from PIL import Image
 
 from media_optimizer import MediaOptimizer
@@ -40,7 +41,7 @@ def test_skips_images_under_size_limit(tmp_path):
     assert optimizer._should_skip_under_size_limit(str(image_path)) is True
 
 
-def test_optimize_does_not_process_images_under_size_limit(tmp_path, monkeypatch):
+def test_optimize_skips_small_jpg_but_processes_small_png(tmp_path, monkeypatch):
     jpg = tmp_path / "small.jpg"
     png = tmp_path / "small.png"
     jpg.write_bytes(b"x" * 1023)
@@ -52,7 +53,34 @@ def test_optimize_does_not_process_images_under_size_limit(tmp_path, monkeypatch
 
     MediaOptimizer(max_size_kb=1).optimize(str(tmp_path))
 
-    assert processed == []
+    assert processed == [str(png)]
+
+
+@pytest.mark.parametrize("source_size", [1023, 1024, 1025])
+def test_optimize_generates_jpg_regardless_of_png_size(tmp_path, source_size):
+    png = tmp_path / "source.png"
+    Image.new("RGB", (32, 32), "red").save(png)
+    png.write_bytes(png.read_bytes().ljust(source_size, b"\0"))
+    original = png.read_bytes()
+
+    MediaOptimizer(max_size_kb=1).optimize(str(tmp_path))
+
+    with Image.open(tmp_path / "source.jpg") as image:
+        assert image.format == "JPEG"
+    assert (tmp_path / "source.jpg").stat().st_size <= 1024
+    if source_size < 1024:
+        assert png.read_bytes() == original
+
+
+def test_optimize_respects_disabled_png_conversion(tmp_path):
+    png = tmp_path / "source.png"
+    Image.new("RGB", (32, 32), "red").save(png)
+    original = png.read_bytes()
+
+    MediaOptimizer(convert_png_to_jpg=False).optimize(str(tmp_path))
+
+    assert not (tmp_path / "source.jpg").exists()
+    assert png.read_bytes() == original
 
 
 def test_optimize_processes_images_at_size_limit(tmp_path, monkeypatch):
